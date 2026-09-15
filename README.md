@@ -27,6 +27,37 @@ selection** to save it with a type you pick. Your other agents can recall it aft
 **Export.** Write an agent's memories into a folder as Markdown with frontmatter, using
 Memanto's Open Knowledge Format.
 
+## Using Memanto with Copilot
+
+If you have GitHub Copilot Chat, Memanto plugs into it in two ways. Neither is required:
+the sidebar works on its own, and on a VS Code without these APIs the extension skips them.
+
+**Ask it directly with `@memanto`.** In the chat panel:
+
+```
+@memanto what did we decide about authentication?
+@memanto /recall database
+@memanto /recent
+@memanto /remember we dropped session cookies
+```
+
+Answers come from your stored memories, and each memory is a link that opens as a tab.
+
+**Let Copilot look things up itself.** The extension registers two tools that Copilot's
+agent mode can call on its own:
+
+| Tool | What it does | Confirmation |
+| --- | --- | --- |
+| `memanto_recall` | Searches your memories | Runs on its own |
+| `memanto_remember` | Saves one memory | Asks you first |
+
+So when you ask Copilot to add a feature, it can check what your team already decided and
+write code that matches, without you looking anything up. You can also point at the tools
+explicitly with `#memanto` in a prompt.
+
+Saving asks for confirmation on purpose. Memories are shared with every agent using that
+Memanto agent, so a model should not fill that estate on its own judgement.
+
 ## Requirements
 
 - **VS Code 1.90** or newer.

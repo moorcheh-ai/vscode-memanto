@@ -1,15 +1,16 @@
 {
 	"name": "memanto",
 	"displayName": "Memanto",
-	"description": "Search and question your agents' memory without leaving the editor.",
+	"description": "Search and question your agents' memory in the sidebar, or let Copilot recall it for you.",
 	"version": "0.1.0",
 	"publisher": "moorcheh-ai",
 	"license": "MIT",
 	"engines": {
-		"vscode": "^1.90.0"
+		"vscode": "^1.95.0"
 	},
 	"categories": [
 		"AI",
+		"Chat",
 		"Other"
 	],
 	"keywords": [
@@ -29,6 +30,138 @@
 		"onStartupFinished"
 	],
 	"contributes": {
+		"chatParticipants": [
+			{
+				"id": "memanto.chat",
+				"name": "memanto",
+				"fullName": "Memanto",
+				"description": "Ask what your agents remember",
+				"isSticky": true,
+				"commands": [
+					{
+						"name": "recall",
+						"description": "List memories matching what you type"
+					},
+					{
+						"name": "recent",
+						"description": "List the most recent memories"
+					},
+					{
+						"name": "remember",
+						"description": "Save what you type as a memory"
+					}
+				],
+				"disambiguation": [
+					{
+						"category": "memanto_memory",
+						"description": "The user is asking what was previously decided, preferred, agreed or learned on this project, or asking to store something for later.",
+						"examples": [
+							"What did we decide about authentication?",
+							"Which database did the team pick, and why?",
+							"Remember that we dropped session cookies"
+						]
+					}
+				]
+			}
+		],
+		"languageModelTools": [
+			{
+				"name": "memanto_recall",
+				"displayName": "Recall memories",
+				"toolReferenceName": "memanto",
+				"canBeReferencedInPrompt": true,
+				"icon": "$(database)",
+				"tags": [
+					"memanto",
+					"memory"
+				],
+				"userDescription": "Search what this project's agents have already decided, preferred and learned.",
+				"modelDescription": "Search Memanto, the developer's persistent memory of decisions, preferences, facts, conventions and past mistakes recorded by their coding agents. Call this before answering questions about how this project does things, or before writing code that depends on a past decision (frameworks, APIs, data stores, naming, deployment). Returns memories with type, confidence, provenance and date. Prefer what it returns over assumptions, and say which memory you relied on.",
+				"inputSchema": {
+					"type": "object",
+					"properties": {
+						"query": {
+							"type": "string",
+							"description": "What to search for, in natural language. For example 'authentication approach' or 'database choice'."
+						},
+						"type": {
+							"type": "string",
+							"description": "Optional filter for one memory type.",
+							"enum": [
+								"instruction",
+								"fact",
+								"decision",
+								"goal",
+								"commitment",
+								"preference",
+								"relationship",
+								"context",
+								"event",
+								"learning",
+								"observation",
+								"artifact",
+								"error"
+							]
+						},
+						"limit": {
+							"type": "number",
+							"description": "How many memories to return, 1 to 50."
+						}
+					},
+					"required": [
+						"query"
+					]
+				}
+			},
+			{
+				"name": "memanto_remember",
+				"displayName": "Remember something",
+				"toolReferenceName": "memantoRemember",
+				"canBeReferencedInPrompt": true,
+				"icon": "$(save)",
+				"tags": [
+					"memanto",
+					"memory"
+				],
+				"userDescription": "Save a decision or fact so this project's other agents can recall it. Asks you first.",
+				"modelDescription": "Save one durable piece of knowledge to Memanto so the developer's other coding agents can recall it later. Use only for things worth keeping beyond this conversation, such as a decision that was made, a stated preference, or a mistake worth not repeating. Do not use it for transient chat or for restating code. The user is asked to confirm before anything is saved.",
+				"inputSchema": {
+					"type": "object",
+					"properties": {
+						"content": {
+							"type": "string",
+							"description": "The memory itself, written as one self-contained statement."
+						},
+						"type": {
+							"type": "string",
+							"description": "Which kind of memory this is.",
+							"enum": [
+								"instruction",
+								"fact",
+								"decision",
+								"goal",
+								"commitment",
+								"preference",
+								"relationship",
+								"context",
+								"event",
+								"learning",
+								"observation",
+								"artifact",
+								"error"
+							]
+						},
+						"title": {
+							"type": "string",
+							"description": "Optional short label."
+						}
+					},
+					"required": [
+						"content"
+					]
+				}
+			}
+		],
 		"viewsContainers": {
 			"activitybar": [
 				{
@@ -258,7 +391,9 @@
 		"typecheck": "tsc --noEmit",
 		"test:unit": "node --test dist-test/test/*.test.js",
 		"pretest:unit": "tsc -p tsconfig.test.json",
-		"package": "npm run build && vsce package --no-dependencies"
+		"package": "npm run build && vsce package --no-dependencies",
+		"test:integration": "tsc -p tsconfig.test.json && node test/integration/runner.mjs",
+		"test": "npm run test:unit && npm run test:integration"
 	},
 	"dependencies": {
 		"dompurify": "^3.1.6",
@@ -269,6 +404,7 @@
 		"@types/js-yaml": "^4.0.9",
 		"@types/node": "^20.14.0",
 		"@types/vscode": "^1.90.0",
+		"@vscode/test-electron": "^3.1.0",
 		"@vscode/vsce": "^3.1.0",
 		"esbuild": "^0.24.0",
 		"typescript": "^5.5.0"

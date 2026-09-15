@@ -38,6 +38,14 @@ export function registerMemoryDocuments(context: vscode.ExtensionContext): Memor
 	return provider;
 }
 
+/**
+ * A link that opens this memory as a tab, for chat responses. Null before the
+ * provider is registered, which only happens outside activation.
+ */
+export function memoryUri(memory: MemoryItem): vscode.Uri | null {
+	return provider ? provider.register(memory) : null;
+}
+
 export async function openMemoryDocument(memory: MemoryItem | undefined): Promise<void> {
 	if (!memory || !provider) return;
 	const uri = provider.register(memory);

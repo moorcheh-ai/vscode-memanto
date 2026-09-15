@@ -1,4 +1,6 @@
 import * as vscode from "vscode";
+import { registerParticipant } from "./ai/participant";
+import { registerTools, RECALL_TOOL, REMEMBER_TOOL } from "./ai/tools";
 import { registerCommands } from "./commands";
 import { MemantoCore } from "./core";
 import { ChatViewProvider } from "./ui/chatView";
@@ -10,7 +12,13 @@ let core: MemantoCore | null = null;
 
 const FIRST_RUN_KEY = "memanto.introShown";
 
-export function activate(context: vscode.ExtensionContext): void {
+/** What `activate` returns, so tests can assert what actually got registered. */
+export interface MemantoExtensionApi {
+	participantRegistered: boolean;
+	toolNames: string[];
+}
+
+export function activate(context: vscode.ExtensionContext): MemantoExtensionApi {
 	core = new MemantoCore();
 	context.subscriptions.push(core);
 
@@ -30,6 +38,18 @@ export function activate(context: vscode.ExtensionContext): void {
 
 	registerCommands(context, core, chat, tree);
 
+	// Copilot surfaces. Both are guarded: on a VS Code without these APIs the
+	// extension still activates with its own sidebar.
+	const participant = registerParticipant(core, context);
+	if (participant) context.subscriptions.push(participant);
+	const tools = registerTools(core);
+	context.subscriptions.push(...tools);
+	core.log(
+		`Chat participant: ${participant ? "registered" : "unavailable"}. Language model tools: ${
+			tools.length ? tools.length : "unavailable"
+		}.`,
+	);
+
 	// Re-detect when the settings that decide where the server lives change.
 	context.subscriptions.push(
 		vscode.workspace.onDidChangeConfiguration((event) => {
@@ -43,6 +63,11 @@ export function activate(context: vscode.ExtensionContext): void {
 	);
 
 	void start(context, core);
+
+	return {
+		participantRegistered: participant !== null,
+		toolNames: tools.length ? [RECALL_TOOL, REMEMBER_TOOL] : [],
+	};
 }
 
 /**

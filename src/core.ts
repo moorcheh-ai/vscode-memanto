@@ -41,6 +41,7 @@ export class MemantoCore implements vscode.Disposable {
 	private readonly statusEmitter = new vscode.EventEmitter<ServerStatus>();
 	private readonly agentEmitter = new vscode.EventEmitter<string>();
 	private refreshing: Promise<Environment> | null = null;
+	private refreshingAllowsStart = false;
 
 	readonly onDidChangeStatus = this.statusEmitter.event;
 	readonly onDidChangeAgent = this.agentEmitter.event;
@@ -123,13 +124,29 @@ export class MemantoCore implements vscode.Disposable {
 		return this.run(false);
 	}
 
+	/**
+	 * Share one run between concurrent callers, but never let a detect-only run
+	 * satisfy a caller that wants the server started. Startup runs detection
+	 * without starting anything, and the first command can easily arrive while
+	 * that is still in flight; reusing it would report "not running" and never
+	 * start.
+	 */
 	private run(allowStart: boolean): Promise<Environment> {
-		if (!this.refreshing) {
-			this.refreshing = this.doRefresh(allowStart).finally(() => {
-				this.refreshing = null;
+		if (this.refreshing && (this.refreshingAllowsStart || !allowStart)) return this.refreshing;
+
+		const previous = this.refreshing ?? Promise.resolve(null);
+		this.refreshingAllowsStart = allowStart;
+		const next = previous
+			.catch(() => null)
+			.then(() => this.doRefresh(allowStart))
+			.finally(() => {
+				if (this.refreshing === next) {
+					this.refreshing = null;
+					this.refreshingAllowsStart = false;
+				}
 			});
-		}
-		return this.refreshing;
+		this.refreshing = next;
+		return next;
 	}
 
 	private async doRefresh(allowStart: boolean): Promise<Environment> {
