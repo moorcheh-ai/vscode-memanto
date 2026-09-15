@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import * as vscode from "vscode";
-import { RememberTool } from "../../src/ai/tools";
+import { AnswerTool, RecallTool, RememberTool } from "../../src/ai/tools";
 import type { MemantoExtensionApi } from "../../src/extension";
 import type { MemantoCore } from "../../src/core";
 
@@ -30,8 +30,8 @@ export async function run(): Promise<void> {
 		assert.equal(api.participantRegistered, true);
 	});
 
-	await check("registers both language model tools", () => {
-		assert.deepEqual(api.toolNames, ["memanto_recall", "memanto_remember"]);
+	await check("registers all three language model tools", () => {
+		assert.deepEqual(api.toolNames, ["memanto_recall", "memanto_answer", "memanto_remember"]);
 	});
 
 	await check("declares the participant in the manifest", () => {
@@ -46,7 +46,7 @@ export async function run(): Promise<void> {
 
 	await check("exposes the tools to the model with descriptions", () => {
 		const names = vscode.lm.tools.map((tool) => tool.name);
-		for (const expected of ["memanto_recall", "memanto_remember"]) {
+		for (const expected of ["memanto_recall", "memanto_answer", "memanto_remember"]) {
 			assert.ok(names.includes(expected), `${expected} missing from vscode.lm.tools`);
 		}
 		const recall = vscode.lm.tools.find((tool) => tool.name === "memanto_recall");
@@ -93,6 +93,34 @@ export async function run(): Promise<void> {
 		assert.match(recallText, /\d{4}-\d{2}-\d{2}/);
 	});
 
+	await check("answer tool returns a grounded answer from a live server", async () => {
+		const result = await vscode.lm.invokeTool("memanto_answer", {
+			input: { question: "What database did we choose?", limit: 5 },
+			toolInvocationToken: undefined,
+		});
+		const answer = textOf(result);
+		assert.ok(answer.length > 0, "tool returned no text");
+		assert.ok(
+			!/not running|could not/i.test(answer),
+			`tool could not reach Memanto: ${answer.slice(0, 200)}`,
+		);
+		assert.match(answer, /grounded in agent/);
+	});
+
+	await check("both read tools run without asking the user", async () => {
+		const core = { agentId: "test-agent", settings: { recallLimit: 10 } } as unknown as MemantoCore;
+		for (const tool of [new RecallTool(core), new AnswerTool(core)]) {
+			const prepared = await tool.prepareInvocation({
+				input: { query: "x", question: "x" },
+			} as never);
+			assert.equal(
+				prepared?.confirmationMessages,
+				undefined,
+				"a read-only tool should not prompt",
+			);
+		}
+	});
+
 	// The write tool must ask first. Checked through prepareInvocation directly,
 	// so the test never writes to the user's real memory estate.
 	await check("remember tool asks for confirmation before writing", async () => {
@@ -104,8 +132,27 @@ export async function run(): Promise<void> {
 		assert.match(prepared.confirmationMessages.title, /Remember this/);
 	});
 
-	await check("stops the server it started", async () => {
+	await check("stops the server it was using", async () => {
+		const before = api.serverState();
+		assert.ok(before.pid !== null, `no server was owned (status ${before.status})`);
+		assert.ok(before.baseUrl, "no base URL recorded");
+
 		await vscode.commands.executeCommand("memanto.stopServer");
+
+		const after = api.serverState();
+		assert.equal(after.pid, null, "server pid is still tracked after stopping");
+		// Prove it at the socket, not just in our own state.
+		await new Promise((resolve) => setTimeout(resolve, 1000));
+		let answering = true;
+		try {
+			const response = await fetch(`${before.baseUrl}/health`, {
+				signal: AbortSignal.timeout(2000),
+			});
+			answering = response.ok;
+		} catch {
+			answering = false;
+		}
+		assert.equal(answering, false, `${before.baseUrl} is still answering after stop`);
 	});
 
 	if (failures.length > 0) {

@@ -114,6 +114,35 @@
 				}
 			},
 			{
+				"name": "memanto_answer",
+				"displayName": "Ask Memanto",
+				"toolReferenceName": "memantoAsk",
+				"canBeReferencedInPrompt": true,
+				"icon": "$(sparkle)",
+				"tags": [
+					"memanto",
+					"memory"
+				],
+				"userDescription": "Ask a question and get an answer written from your stored memories.",
+				"modelDescription": "Ask Memanto a question and get back a single written answer synthesised from the developer's stored memories, with the memories it used. Use this when the answer needs several memories pulled together, such as why something was decided or how a part of the project came to work the way it does. Prefer memanto_recall when you want the raw memories as evidence, or when you only need to look one thing up: this tool runs a model over the memories, so it is slower and uses the developer's Memanto quota.",
+				"inputSchema": {
+					"type": "object",
+					"properties": {
+						"question": {
+							"type": "string",
+							"description": "The question to ask, in natural language."
+						},
+						"limit": {
+							"type": "number",
+							"description": "How many memories to ground the answer in, 1 to 50."
+						}
+					},
+					"required": [
+						"question"
+					]
+				}
+			},
+			{
 				"name": "memanto_remember",
 				"displayName": "Remember something",
 				"toolReferenceName": "memantoRemember",

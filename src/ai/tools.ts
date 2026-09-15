@@ -3,11 +3,17 @@ import { describe, type MemantoCore } from "../core";
 import { memoryText, type MemoryItem } from "../types";
 
 export const RECALL_TOOL = "memanto_recall";
+export const ANSWER_TOOL = "memanto_answer";
 export const REMEMBER_TOOL = "memanto_remember";
 
 export interface RecallToolInput {
 	query: string;
 	type?: string;
+	limit?: number;
+}
+
+export interface AnswerToolInput {
+	question: string;
 	limit?: number;
 }
 
@@ -29,6 +35,7 @@ export function registerTools(core: MemantoCore): vscode.Disposable[] {
 	if (typeof vscode.lm?.registerTool !== "function") return [];
 	return [
 		vscode.lm.registerTool(RECALL_TOOL, new RecallTool(core)),
+		vscode.lm.registerTool(ANSWER_TOOL, new AnswerTool(core)),
 		vscode.lm.registerTool(REMEMBER_TOOL, new RememberTool(core)),
 	];
 }
@@ -50,7 +57,7 @@ export class RecallTool implements vscode.LanguageModelTool<RecallToolInput> {
 	async invoke(
 		options: vscode.LanguageModelToolInvocationOptions<RecallToolInput>,
 	): Promise<vscode.LanguageModelToolResult> {
-		const ready = await this.ready();
+		const ready = await readiness(this.core);
 		if (ready) return text(ready);
 
 		const agentId = this.core.agentId as string;
@@ -71,15 +78,55 @@ export class RecallTool implements vscode.LanguageModelTool<RecallToolInput> {
 		}
 	}
 
-	/** Null when ready, otherwise the message to hand back to the model. */
-	private async ready(): Promise<string | null> {
-		if (!(await this.core.ensureOnline())) {
-			return this.core.lastServerError
-				? `Memanto is not running: ${this.core.lastServerError}`
-				: "Memanto is not running in this window, so no memories are available.";
+}
+
+export class AnswerTool implements vscode.LanguageModelTool<AnswerToolInput> {
+	constructor(private readonly core: MemantoCore) {}
+
+	prepareInvocation(
+		options: vscode.LanguageModelToolInvocationPrepareOptions<AnswerToolInput>,
+	): vscode.PreparedToolInvocation {
+		const question = options.input?.question?.trim();
+		return {
+			invocationMessage: question
+				? `Asking ${this.core.agentId ?? "Memanto"}: “${question}”`
+				: "Asking Memanto",
+		};
+	}
+
+	async invoke(
+		options: vscode.LanguageModelToolInvocationOptions<AnswerToolInput>,
+	): Promise<vscode.LanguageModelToolResult> {
+		const ready = await readiness(this.core);
+		if (ready) return text(ready);
+
+		const agentId = this.core.agentId as string;
+		const question = (options.input?.question ?? "").trim();
+		if (!question) return text("No question was given, so nothing was asked.");
+
+		try {
+			const response = await this.core.client.answer(
+				agentId,
+				question,
+				clampLimit(options.input?.limit, this.core.settings.recallLimit),
+			);
+			const answer = response.answer?.trim();
+			if (!answer) return text(`Memanto had no answer for "${question}".`);
+
+			const sources = (response.sources ?? []).map(
+				(source, index) => `${index + 1}. ${memoryText(source)}`,
+			);
+			return text(
+				[
+					`Memanto's answer for "${question}", grounded in agent "${agentId}".`,
+					"",
+					answer,
+					...(sources.length ? ["", `Grounded in ${sources.length} memories:`, ...sources] : []),
+				].join("\n"),
+			);
+		} catch (error) {
+			return text(`Memanto could not answer that: ${describe(error)}`);
 		}
-		if (!this.core.agentId) return "No Memanto agent is selected in this window.";
-		return null;
 	}
 }
 
@@ -133,6 +180,17 @@ export class RememberTool implements vscode.LanguageModelTool<RememberToolInput>
 			return text(`Memanto could not save that: ${describe(error)}`);
 		}
 	}
+}
+
+/** Null when Memanto can be used, otherwise the message to hand back to the model. */
+async function readiness(core: MemantoCore): Promise<string | null> {
+	if (!(await core.ensureOnline())) {
+		return core.lastServerError
+			? `Memanto is not running: ${core.lastServerError}`
+			: "Memanto is not running in this window, so no memories are available.";
+	}
+	if (!core.agentId) return "No Memanto agent is selected in this window.";
+	return null;
 }
 
 /** Compact, labelled text: the model needs the trust fields, not prose. */

@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { registerParticipant } from "./ai/participant";
-import { registerTools, RECALL_TOOL, REMEMBER_TOOL } from "./ai/tools";
+import { registerTools, ANSWER_TOOL, RECALL_TOOL, REMEMBER_TOOL } from "./ai/tools";
 import { registerCommands } from "./commands";
 import { MemantoCore } from "./core";
 import { ChatViewProvider } from "./ui/chatView";
@@ -16,6 +16,8 @@ const FIRST_RUN_KEY = "memanto.introShown";
 export interface MemantoExtensionApi {
 	participantRegistered: boolean;
 	toolNames: string[];
+	/** Live view of the server this window owns, so tests can assert it stopped. */
+	serverState(): { pid: number | null; baseUrl: string; status: string };
 }
 
 export function activate(context: vscode.ExtensionContext): MemantoExtensionApi {
@@ -64,9 +66,15 @@ export function activate(context: vscode.ExtensionContext): MemantoExtensionApi 
 
 	void start(context, core);
 
+	const instance = core;
 	return {
 		participantRegistered: participant !== null,
-		toolNames: tools.length ? [RECALL_TOOL, REMEMBER_TOOL] : [],
+		toolNames: tools.length ? [RECALL_TOOL, ANSWER_TOOL, REMEMBER_TOOL] : [],
+		serverState: () => ({
+			pid: instance.serverPid,
+			baseUrl: instance.environment?.baseUrl ?? "",
+			status: instance.status,
+		}),
 	};
 }
 

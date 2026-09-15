@@ -43,24 +43,29 @@ the sidebar works on its own, and on a VS Code without these APIs the extension 
 
 Answers come from your stored memories, and each memory is a link that opens as a tab.
 
-**Let Copilot look things up itself.** The extension registers two tools that Copilot's
+**Let Copilot look things up itself.** The extension registers three tools that Copilot's
 agent mode can call on its own:
 
 | Tool | What it does | Confirmation |
 | --- | --- | --- |
-| `memanto_recall` | Searches your memories | Runs on its own |
+| `memanto_recall` | Searches your memories and returns the matches | Runs on its own |
+| `memanto_answer` | Asks Memanto a question and returns a written answer | Runs on its own |
 | `memanto_remember` | Saves one memory | Asks you first |
+
+`memanto_recall` returns the raw memories as evidence. `memanto_answer` pulls several
+memories together into one answer, which is better for "why did we do it this way", and is
+slower because it runs a model over them.
 
 So when you ask Copilot to add a feature, it can check what your team already decided and
 write code that matches, without you looking anything up. You can also point at the tools
-explicitly with `#memanto` in a prompt.
+explicitly with `#memanto`, `#memantoAsk` or `#memantoRemember` in a prompt.
 
 Saving asks for confirmation on purpose. Memories are shared with every agent using that
 Memanto agent, so a model should not fill that estate on its own judgement.
 
 ## Requirements
 
-- **VS Code 1.90** or newer.
+- **VS Code 1.95** or newer.
 - **[Memanto](https://github.com/moorcheh-ai/memanto)**, which needs Python 3.11 or newer.
 
 ## Setup
