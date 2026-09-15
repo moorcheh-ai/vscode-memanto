@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="resources/logo.png" alt="Memanto" width="96">
+</p>
+
 # Memanto for VS Code
 
 Search and ask questions about your agents' memory without leaving the editor.
