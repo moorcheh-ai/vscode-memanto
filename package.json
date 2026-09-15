@@ -1,0 +1,276 @@
+{
+	"name": "memanto",
+	"displayName": "Memanto",
+	"description": "Search and question your agents' memory without leaving the editor.",
+	"version": "0.1.0",
+	"publisher": "moorcheh-ai",
+	"license": "MIT",
+	"engines": {
+		"vscode": "^1.90.0"
+	},
+	"categories": [
+		"AI",
+		"Other"
+	],
+	"keywords": [
+		"memanto",
+		"memory",
+		"ai",
+		"agents",
+		"moorcheh"
+	],
+	"icon": "resources/icon.png",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/moorcheh-ai/vscode-memanto.git"
+	},
+	"main": "./dist/extension.js",
+	"activationEvents": [
+		"onStartupFinished"
+	],
+	"contributes": {
+		"viewsContainers": {
+			"activitybar": [
+				{
+					"id": "memanto",
+					"title": "Memanto",
+					"icon": "resources/memanto.svg"
+				}
+			]
+		},
+		"views": {
+			"memanto": [
+				{
+					"id": "memanto.chat",
+					"name": "Chat",
+					"type": "webview"
+				},
+				{
+					"id": "memanto.memories",
+					"name": "Memories",
+					"visibility": "collapsed"
+				}
+			]
+		},
+		"viewsWelcome": [
+			{
+				"view": "memanto.memories",
+				"contents": "Memanto isn't running yet.\n[Start server](command:memanto.startServer)\n[Setup steps](command:memanto.setup)",
+				"when": "!memanto.online"
+			},
+			{
+				"view": "memanto.memories",
+				"contents": "Choose an agent to browse its memories.\n[Select agent](command:memanto.selectAgent)",
+				"when": "memanto.online && !memanto.hasAgent"
+			}
+		],
+		"commands": [
+			{
+				"command": "memanto.openChat",
+				"title": "Open chat",
+				"category": "Memanto"
+			},
+			{
+				"command": "memanto.recall",
+				"title": "Recall memories",
+				"category": "Memanto",
+				"icon": "$(search)"
+			},
+			{
+				"command": "memanto.answer",
+				"title": "Ask a question",
+				"category": "Memanto",
+				"icon": "$(sparkle)"
+			},
+			{
+				"command": "memanto.rememberSelection",
+				"title": "Remember selection",
+				"category": "Memanto"
+			},
+			{
+				"command": "memanto.selectAgent",
+				"title": "Select agent",
+				"category": "Memanto",
+				"icon": "$(account)"
+			},
+			{
+				"command": "memanto.startServer",
+				"title": "Start server",
+				"category": "Memanto"
+			},
+			{
+				"command": "memanto.stopServer",
+				"title": "Stop server",
+				"category": "Memanto"
+			},
+			{
+				"command": "memanto.setup",
+				"title": "Setup steps",
+				"category": "Memanto"
+			},
+			{
+				"command": "memanto.refresh",
+				"title": "Refresh",
+				"category": "Memanto",
+				"icon": "$(refresh)"
+			},
+			{
+				"command": "memanto.exportMemories",
+				"title": "Export memories to a folder",
+				"category": "Memanto"
+			},
+			{
+				"command": "memanto.openMemory",
+				"title": "Open memory",
+				"category": "Memanto"
+			}
+		],
+		"menus": {
+			"view/title": [
+				{
+					"command": "memanto.selectAgent",
+					"when": "view == memanto.memories",
+					"group": "navigation@1"
+				},
+				{
+					"command": "memanto.refresh",
+					"when": "view == memanto.memories",
+					"group": "navigation@2"
+				}
+			],
+			"editor/context": [
+				{
+					"command": "memanto.rememberSelection",
+					"when": "editorHasSelection",
+					"group": "memanto@1"
+				}
+			],
+			"commandPalette": [
+				{
+					"command": "memanto.openMemory",
+					"when": "false"
+				},
+				{
+					"command": "memanto.refresh",
+					"when": "false"
+				}
+			]
+		},
+		"configuration": {
+			"title": "Memanto",
+			"properties": {
+				"memanto.agentId": {
+					"type": "string",
+					"default": "",
+					"markdownDescription": "Agent whose memories this window uses. Leave empty to follow the active agent in `~/.memanto/config.yaml`.",
+					"scope": "resource"
+				},
+				"memanto.server.mode": {
+					"type": "string",
+					"enum": [
+						"private",
+						"attach"
+					],
+					"enumDescriptions": [
+						"Run a private Memanto server for this window and stop it on exit. A server you run yourself is never used or stopped.",
+						"Connect to a Memanto server you run yourself."
+					],
+					"default": "private",
+					"description": "Where the extension gets its Memanto server."
+				},
+				"memanto.server.startOnStartup": {
+					"type": "boolean",
+					"default": false,
+					"description": "Start the private server as soon as the window opens. Off by default: the server starts the first time you use Memanto."
+				},
+				"memanto.server.address": {
+					"type": "string",
+					"default": "",
+					"markdownDescription": "Address of your own server, used when `#memanto.server.mode#` is `attach`. Leave empty to follow `~/.memanto/config.yaml`."
+				},
+				"memanto.recallLimit": {
+					"type": "number",
+					"default": 10,
+					"minimum": 1,
+					"maximum": 50,
+					"description": "How many memories a recall returns."
+				},
+				"memanto.citeOnInsert": {
+					"type": "boolean",
+					"default": true,
+					"description": "Add a comment with the type, provenance and date when inserting a memory into a file."
+				},
+				"memanto.export.memoriesPerType": {
+					"type": "number",
+					"default": 200,
+					"minimum": 1,
+					"description": "How many memories of each type an export includes."
+				}
+			}
+		},
+		"walkthroughs": [
+			{
+				"id": "memanto.gettingStarted",
+				"title": "Set up Memanto",
+				"description": "Install the Memanto CLI and connect this window to your agents' memory.",
+				"steps": [
+					{
+						"id": "install",
+						"title": "Install Memanto",
+						"description": "Memanto is a Python command line tool and needs Python 3.11 or newer.\n[Copy install command](command:memanto.setup)",
+						"media": {
+							"markdown": "media/walkthrough-install.md"
+						},
+						"completionEvents": [
+							"onContext:memanto.installed"
+						]
+					},
+					{
+						"id": "configure",
+						"title": "Choose a backend",
+						"description": "Run `memanto` in a terminal to pick the cloud or on-prem backend and store your key.\n[Open setup steps](command:memanto.setup)",
+						"media": {
+							"markdown": "media/walkthrough-configure.md"
+						},
+						"completionEvents": [
+							"onContext:memanto.configured"
+						]
+					},
+					{
+						"id": "chat",
+						"title": "Open the chat",
+						"description": "Search your memories or ask a question. The extension starts the server for you.\n[Open chat](command:memanto.openChat)",
+						"media": {
+							"markdown": "media/walkthrough-chat.md"
+						},
+						"completionEvents": [
+							"onCommand:memanto.openChat"
+						]
+					}
+				]
+			}
+		]
+	},
+	"scripts": {
+		"compile": "node esbuild.config.mjs",
+		"watch": "node esbuild.config.mjs --watch",
+		"build": "npm run typecheck && node esbuild.config.mjs --production",
+		"typecheck": "tsc --noEmit",
+		"test:unit": "node --test dist-test/test/*.test.js",
+		"pretest:unit": "tsc -p tsconfig.test.json",
+		"package": "npm run build && vsce package --no-dependencies"
+	},
+	"dependencies": {
+		"dompurify": "^3.1.6",
+		"js-yaml": "^4.1.0",
+		"marked": "^14.1.2"
+	},
+	"devDependencies": {
+		"@types/js-yaml": "^4.0.9",
+		"@types/node": "^20.14.0",
+		"@types/vscode": "^1.90.0",
+		"@vscode/vsce": "^3.1.0",
+		"esbuild": "^0.24.0",
+		"typescript": "^5.5.0"
+	}
+}

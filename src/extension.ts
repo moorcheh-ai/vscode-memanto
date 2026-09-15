@@ -1,0 +1,77 @@
+import * as vscode from "vscode";
+import { registerCommands } from "./commands";
+import { MemantoCore } from "./core";
+import { ChatViewProvider } from "./ui/chatView";
+import { MemoriesTreeProvider } from "./ui/memoriesTree";
+import { registerMemoryDocuments } from "./ui/memoryDocument";
+import { createStatusItem } from "./ui/status";
+
+let core: MemantoCore | null = null;
+
+const FIRST_RUN_KEY = "memanto.introShown";
+
+export function activate(context: vscode.ExtensionContext): void {
+	core = new MemantoCore();
+	context.subscriptions.push(core);
+
+	registerMemoryDocuments(context);
+
+	const chat = new ChatViewProvider(core, context.extensionUri);
+	const tree = new MemoriesTreeProvider(core);
+
+	context.subscriptions.push(
+		vscode.window.registerWebviewViewProvider(ChatViewProvider.viewType, chat, {
+			// Keep the transcript when the user switches to another view.
+			webviewOptions: { retainContextWhenHidden: true },
+		}),
+		vscode.window.registerTreeDataProvider("memanto.memories", tree),
+		createStatusItem(core),
+	);
+
+	registerCommands(context, core, chat, tree);
+
+	// Re-detect when the settings that decide where the server lives change.
+	context.subscriptions.push(
+		vscode.workspace.onDidChangeConfiguration((event) => {
+			if (
+				event.affectsConfiguration("memanto.server") ||
+				event.affectsConfiguration("memanto.agentId")
+			) {
+				void core?.refresh();
+			}
+		}),
+	);
+
+	void start(context, core);
+}
+
+/**
+ * Nothing here blocks activation: detection touches the filesystem and may
+ * start a process, so it runs after VS Code has finished starting up.
+ */
+async function start(context: vscode.ExtensionContext, instance: MemantoCore): Promise<void> {
+	if (instance.settings.startOnStartup) {
+		await instance.refresh();
+		return;
+	}
+
+	// Without starting anything, still learn enough for an honest status bar.
+	await instance.detectOnly().catch(() => undefined);
+
+	if (instance.needsSetup && !context.globalState.get<boolean>(FIRST_RUN_KEY)) {
+		await context.globalState.update(FIRST_RUN_KEY, true);
+		const choice = await vscode.window.showInformationMessage(
+			"Memanto: install the CLI to search your agents' memory from here.",
+			"Setup steps",
+			"Not now",
+		);
+		if (choice === "Setup steps") await vscode.commands.executeCommand("memanto.setup");
+	}
+}
+
+export function deactivate(): void {
+	// Stop the server this window started. Synchronous on purpose: VS Code gives
+	// deactivation a short window, and an async kill may never be scheduled.
+	core?.dispose();
+	core = null;
+}
