@@ -4,7 +4,7 @@ import { AnswerTool, RecallTool, RememberTool } from "../../src/ai/tools";
 import type { MemantoExtensionApi } from "../../src/extension";
 import type { MemantoCore } from "../../src/core";
 
-const EXTENSION_ID = "moorcheh-ai.memanto";
+const EXTENSION_ID = "moorcheh.memanto";
 
 /**
  * Runs inside a real VS Code extension host, which is the only place the chat

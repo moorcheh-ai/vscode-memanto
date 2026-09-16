@@ -3,7 +3,7 @@
 	"displayName": "Memanto",
 	"description": "Search and question your agents' memory in the sidebar, or let Copilot recall it for you.",
 	"version": "0.1.0",
-	"publisher": "moorcheh-ai",
+	"publisher": "moorcheh",
 	"license": "MIT",
 	"engines": {
 		"vscode": "^1.95.0"
