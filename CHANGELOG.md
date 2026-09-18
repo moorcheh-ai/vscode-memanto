@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1
+
+- Use the same mascot for the marketplace icon and the readme logo.
+
 ## 0.1.0
 
 First release.

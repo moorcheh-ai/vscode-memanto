@@ -2,7 +2,7 @@
 	"name": "memanto",
 	"displayName": "Memanto",
 	"description": "Search and question your agents' memory in the sidebar, or let Copilot recall it for you.",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"publisher": "moorcheh",
 	"license": "MIT",
 	"engines": {
