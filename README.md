@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="resources/logo.png" alt="Memanto" width="96">
+  <img src="resources/logo.svg" alt="Memanto" width="440">
 </p>
 
 # Memanto for VS Code
