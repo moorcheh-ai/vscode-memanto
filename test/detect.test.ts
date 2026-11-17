@@ -1,9 +1,14 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, before, describe, it } from "node:test";
-import { normalizeBaseUrl, readApiKey, readSessionToken } from "../src/env/detect";
+import {
+	normalizeBaseUrl,
+	readActiveAgentId,
+	readApiKey,
+	readSessionToken,
+} from "../src/env/detect";
 
 describe("normalizeBaseUrl", () => {
 	it("merges the host and port the CLI stores separately", () => {
@@ -98,5 +103,50 @@ describe("reading Memanto's files", () => {
 	it("refuses agent ids that could escape the sessions directory", () => {
 		assert.equal(readSessionToken("../../.env"), null);
 		assert.equal(readSessionToken("a/b"), null);
+	});
+
+	describe("the agent active on this computer", () => {
+		const marker = (): string => join(home, ".memanto", "sessions", "active");
+		const config = join(home, ".memanto", "config.yaml");
+
+		it("is null when no agent is active", () => {
+			rmSync(marker(), { force: true });
+			assert.equal(readActiveAgentId(), null);
+		});
+
+		it("reads the plain-file marker the CLI writes where symlinks fail", () => {
+			writeFileSync(marker(), "live\n");
+			assert.equal(readActiveAgentId(), "live");
+		});
+
+		it("reads the symlink marker", (t) => {
+			rmSync(marker(), { force: true });
+			try {
+				symlinkSync("live.json", marker());
+			} catch {
+				t.skip("symlinks need extra rights on this machine");
+				return;
+			}
+			assert.equal(readActiveAgentId(), "live");
+			rmSync(marker(), { force: true });
+		});
+
+		it("refuses a marker that is not a safe agent id", () => {
+			writeFileSync(marker(), "../../.env");
+			assert.equal(readActiveAgentId(), null);
+		});
+
+		it("reads on-prem's own sessions directory", () => {
+			writeFileSync(marker(), "live");
+			mkdirSync(join(home, ".memanto", "on-prem", "sessions"), { recursive: true });
+			writeFileSync(join(home, ".memanto", "on-prem", "sessions", "active"), "local-agent");
+			writeFileSync(config, "memanto:\n  backend: on-prem\n");
+			try {
+				assert.equal(readActiveAgentId(), "local-agent");
+			} finally {
+				rmSync(config, { force: true });
+			}
+			assert.equal(readActiveAgentId(), "live");
+		});
 	});
 });

@@ -321,12 +321,6 @@
 		"configuration": {
 			"title": "Memanto",
 			"properties": {
-				"memanto.agentId": {
-					"type": "string",
-					"default": "",
-					"markdownDescription": "Agent whose memories this window uses. Leave empty to follow the active agent in `~/.memanto/config.yaml`.",
-					"scope": "resource"
-				},
 				"memanto.server.mode": {
 					"type": "string",
 					"enum": [
