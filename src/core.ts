@@ -1,10 +1,14 @@
 import { createHash } from "crypto";
+import { unwatchFile, watchFile } from "fs";
+import { join } from "path";
 import * as vscode from "vscode";
 import { MemantoClient } from "./api/client";
 import {
 	detect,
 	needsSetup,
+	readActiveAgentId,
 	readSessionToken,
+	sessionsDir,
 	resolveBaseUrl,
 	type Environment,
 } from "./env/detect";
@@ -14,7 +18,6 @@ import type { AgentInfo } from "./types";
 export type ServerStatus = "idle" | "checking" | "starting" | "online" | "offline";
 
 export interface MemantoSettings {
-	agentId: string;
 	serverMode: ServerMode;
 	startOnStartup: boolean;
 	address: string;
@@ -42,6 +45,9 @@ export class MemantoCore implements vscode.Disposable {
 	private readonly agentEmitter = new vscode.EventEmitter<string>();
 	private refreshing: Promise<Environment> | null = null;
 	private refreshingAllowsStart = false;
+	/** Last agent reported to listeners, so a switch elsewhere fires `onDidChangeAgent`. */
+	private lastAgentId: string | null = null;
+	private watchedMarker: string | null = null;
 
 	readonly onDidChangeStatus = this.statusEmitter.event;
 	readonly onDidChangeAgent = this.agentEmitter.event;
@@ -65,7 +71,6 @@ export class MemantoCore implements vscode.Disposable {
 	get settings(): MemantoSettings {
 		const config = vscode.workspace.getConfiguration("memanto");
 		return {
-			agentId: config.get<string>("agentId", ""),
 			serverMode: config.get<ServerMode>("server.mode", "private"),
 			startOnStartup: config.get<boolean>("server.startOnStartup", false),
 			address: config.get<string>("server.address", ""),
@@ -83,9 +88,34 @@ export class MemantoCore implements vscode.Disposable {
 		return this.servers.pid;
 	}
 
-	/** The agent this window talks to, or null until one is known. */
+	/**
+	 * The agent this window talks to: the agent active on this computer, shared
+	 * with the CLI, coding tools and the desktop widget. Null when none is.
+	 */
 	get agentId(): string | null {
-		return this.settings.agentId || this.environment?.activeAgentId || null;
+		return readActiveAgentId();
+	}
+
+	/**
+	 * Fire `onDidChangeAgent` when the active agent changes outside this window
+	 * (CLI, widget, another editor). Polls the marker file, because native file
+	 * watchers miss symlink swaps on some platforms.
+	 */
+	private watchActiveAgent(): void {
+		const marker = join(sessionsDir(), "active");
+		if (marker === this.watchedMarker) return;
+		if (this.watchedMarker) unwatchFile(this.watchedMarker);
+		this.watchedMarker = marker;
+		this.lastAgentId = this.agentId;
+		watchFile(marker, { interval: 2000 }, () => this.notifyIfAgentChanged());
+	}
+
+	private notifyIfAgentChanged(): void {
+		const current = this.agentId;
+		if (current === this.lastAgentId) return;
+		this.lastAgentId = current;
+		void vscode.commands.executeCommand("setContext", "memanto.hasAgent", Boolean(current));
+		if (current) this.agentEmitter.fire(current);
 	}
 
 	log(message: string): void {
@@ -188,7 +218,16 @@ export class MemantoCore implements vscode.Disposable {
 		await this.updateContextKeys(environment);
 		this.setStatus(environment.serverUp ? "online" : "offline");
 
-		if (environment.serverUp) void this.loadAgents();
+		this.watchActiveAgent();
+		if (environment.serverUp) {
+			// With auto-activate on, asking the server for the active agent
+			// resumes the last one when none is active.
+			if (!this.agentId) {
+				await this.client.activeAgentId().catch(() => null);
+				this.notifyIfAgentChanged();
+			}
+			void this.loadAgents();
+		}
 		return environment;
 	}
 
@@ -214,13 +253,13 @@ export class MemantoCore implements vscode.Disposable {
 		return this.agents;
 	}
 
+	/**
+	 * Make `agentId` the active agent on this computer, the same as
+	 * `memanto agent activate`, so the CLI, coding tools and widget switch too.
+	 */
 	async setAgent(agentId: string): Promise<void> {
-		const target = vscode.workspace.workspaceFolders?.length
-			? vscode.ConfigurationTarget.Workspace
-			: vscode.ConfigurationTarget.Global;
-		await vscode.workspace.getConfiguration("memanto").update("agentId", agentId, target);
-		await vscode.commands.executeCommand("setContext", "memanto.hasAgent", true);
-		this.agentEmitter.fire(agentId);
+		await this.client.activateAgent(agentId);
+		this.notifyIfAgentChanged();
 	}
 
 	/** True when the user still has real setup work in front of them. */
@@ -258,6 +297,7 @@ export class MemantoCore implements vscode.Disposable {
 		// Stop the server we started. VS Code gives `deactivate` a short window,
 		// so the kill is synchronous.
 		this.servers.stop();
+		if (this.watchedMarker) unwatchFile(this.watchedMarker);
 		this.statusEmitter.dispose();
 		this.agentEmitter.dispose();
 		this.output.dispose();

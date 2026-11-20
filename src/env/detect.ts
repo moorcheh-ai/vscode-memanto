@@ -1,6 +1,6 @@
-import { existsSync, readFileSync } from "fs";
+import { existsSync, lstatSync, readFileSync, readlinkSync } from "fs";
 import { homedir } from "os";
-import { delimiter, join } from "path";
+import { basename, delimiter, join } from "path";
 import { load as parseYaml } from "js-yaml";
 
 /**
@@ -16,7 +16,7 @@ export interface Environment {
 	apiKey: string | null;
 	/** `~/.memanto/config.yaml` exists and parsed. */
 	hasConfig: boolean;
-	/** Agent the CLI last activated, used as the default selection. */
+	/** Agent active on this computer when detection ran (see `readActiveAgentId`). */
 	activeAgentId: string | null;
 	/** `cloud` or `on-prem`, when the config says. */
 	backend: string | null;
@@ -88,7 +88,7 @@ const SESSION_EXPIRY_MARGIN_MS = 60_000;
 export function readSessionToken(agentId: string): string | null {
 	if (!SAFE_AGENT_ID.test(agentId)) return null;
 
-	const path = join(memantoHome(), "sessions", `${agentId}.json`);
+	const path = join(sessionsDir(), `${agentId}.json`);
 	if (!existsSync(path)) return null;
 
 	try {
@@ -109,10 +109,34 @@ export function readSessionToken(agentId: string): string | null {
 	}
 }
 
+/** Where the CLI keeps sessions for the configured backend; on-prem has its own. */
+export function sessionsDir(): string {
+	const base = memantoHome();
+	return readConfig().backend === "on-prem" ? join(base, "on-prem", "sessions") : join(base, "sessions");
+}
+
+/**
+ * The agent active on this computer: the one the CLI, coding tools, MCP server
+ * and desktop widget all use. Read fresh on every call, so switching agents
+ * anywhere is followed here. The CLI writes `sessions/active` as a symlink to
+ * `{agent}.json`, or as a plain file holding the id where symlinks fail.
+ */
+export function readActiveAgentId(): string | null {
+	const path = join(sessionsDir(), "active");
+	let value: string;
+	try {
+		value = lstatSync(path).isSymbolicLink()
+			? basename(readlinkSync(path), ".json")
+			: readFileSync(path, "utf8").trim();
+	} catch {
+		return null;
+	}
+	return SAFE_AGENT_ID.test(value) ? value : null;
+}
+
 interface MemantoConfig {
 	port: number | null;
 	url: string | null;
-	activeAgentId: string | null;
 	backend: string | null;
 }
 
@@ -123,7 +147,7 @@ interface MemantoConfig {
  * too, so a hand-edited config does not break detection.
  */
 function readConfig(): MemantoConfig {
-	const empty: MemantoConfig = { port: null, url: null, activeAgentId: null, backend: null };
+	const empty: MemantoConfig = { port: null, url: null, backend: null };
 	const path = join(memantoHome(), "config.yaml");
 	if (!existsSync(path)) return empty;
 
@@ -140,7 +164,6 @@ function readConfig(): MemantoConfig {
 	return {
 		port: typeof server.port === "number" ? server.port : null,
 		url: typeof server.url === "string" ? server.url : null,
-		activeAgentId: typeof root.active_agent_id === "string" ? root.active_agent_id : null,
 		backend: typeof root.backend === "string" ? root.backend : null,
 	};
 }
@@ -230,7 +253,7 @@ export async function detect(
 		hasApiKey: apiKey !== null,
 		apiKey,
 		hasConfig: existsSync(join(memantoHome(), "config.yaml")),
-		activeAgentId: config.activeAgentId,
+		activeAgentId: readActiveAgentId(),
 		backend: config.backend,
 		binaryPath: findBinary(),
 	};

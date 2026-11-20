@@ -79,7 +79,9 @@ commands for anything missing, each of which you can copy. Run **Memanto: Setup 
 the command palette at any time.
 
 If Memanto is already set up, there's nothing to configure. The extension reads your API key
-from `~/.memanto/.env` and your active agent from `~/.memanto/config.yaml`.
+from `~/.memanto/.env` and uses the agent active on this computer, the same one the CLI,
+coding tools and the desktop widget use. Run `memanto agent auto-activate on` to have your
+last agent resume by itself.
 
 To start from scratch, run two commands:
 
@@ -100,7 +102,7 @@ card required). The on-prem backend needs no key and runs locally through Docker
 | **Memanto: Recall memories** | Searches memories and lists the matches. |
 | **Memanto: Ask a question** | Asks a question and opens the answer in a tab. |
 | **Memanto: Remember selection** | Saves the selected text as a memory. |
-| **Memanto: Select agent** | Chooses which agent this window uses. |
+| **Memanto: Select agent** | Activates an agent on this computer, the same as `memanto agent activate`. |
 | **Memanto: Export memories to a folder** | Writes memories to a folder as Markdown. |
 | **Memanto: Start server** / **Stop server** | Controls this window's private server. |
 | **Memanto: Setup steps** | Shows the install steps with copyable commands. |
@@ -109,7 +111,6 @@ card required). The on-prem backend needs no key and runs locally through Docker
 
 | Setting | Default | What it does |
 | --- | --- | --- |
-| `memanto.agentId` | follows the CLI | Agent this window uses. |
 | `memanto.server.mode` | `private` | Run a private server, or connect to your own. |
 | `memanto.server.startOnStartup` | `false` | Start the server when the window opens instead of on first use. |
 | `memanto.server.address` | follows the CLI | Address of your own server, for `attach` mode. |

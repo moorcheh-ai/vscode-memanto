@@ -55,10 +55,7 @@ export function activate(context: vscode.ExtensionContext): MemantoExtensionApi 
 	// Re-detect when the settings that decide where the server lives change.
 	context.subscriptions.push(
 		vscode.workspace.onDidChangeConfiguration((event) => {
-			if (
-				event.affectsConfiguration("memanto.server") ||
-				event.affectsConfiguration("memanto.agentId")
-			) {
+			if (event.affectsConfiguration("memanto.server")) {
 				void core?.refresh();
 			}
 		}),
