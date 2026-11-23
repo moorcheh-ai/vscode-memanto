@@ -4,7 +4,7 @@
 
 - Works on Memanto Cloud. After `memanto login`, the window's private server stores and
   reads your memories on Memanto Cloud, shared with your other computers and tools. Needs
-  a `memanto` release with Memanto Cloud support for `memanto serve`.
+  memanto 0.3.1 or later.
 - Uses the agent active on this computer, the same one the CLI, coding tools and the desktop
   widget use, and follows it when you switch agents anywhere.
 - **Memanto: Select agent** now activates the agent on this computer, like
