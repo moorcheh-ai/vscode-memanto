@@ -47,6 +47,7 @@ describe("reading Memanto's files", () => {
 	let previousProfile: string | undefined;
 	let previousHome: string | undefined;
 	let previousKey: string | undefined;
+	let previousCloudKey: string | undefined;
 
 	before(() => {
 		previousProfile = process.env.USERPROFILE;
@@ -55,11 +56,13 @@ describe("reading Memanto's files", () => {
 		process.env.USERPROFILE = home;
 		process.env.HOME = home;
 		delete process.env.MOORCHEH_API_KEY;
+		previousCloudKey = process.env.MEMANTO_API_KEY;
+		delete process.env.MEMANTO_API_KEY;
 
 		mkdirSync(join(home, ".memanto", "sessions"), { recursive: true });
 		writeFileSync(
 			join(home, ".memanto", ".env"),
-			"# MEMANTO Environment\nMOORCHEH_API_KEY=abc123\nOTHER=zzz\n",
+			"# MEMANTO Environment\nMOORCHEH_API_KEY=abc123\nMEMANTO_API_KEY='mk_cloud'\nOTHER=zzz\n",
 		);
 
 		const future = new Date(Date.now() + 3_600_000).toISOString();
@@ -78,10 +81,21 @@ describe("reading Memanto's files", () => {
 		if (previousHome === undefined) delete process.env.HOME;
 		else process.env.HOME = previousHome;
 		if (previousKey !== undefined) process.env.MOORCHEH_API_KEY = previousKey;
+		if (previousCloudKey !== undefined) process.env.MEMANTO_API_KEY = previousCloudKey;
 	});
 
 	it("reads the API key out of ~/.memanto/.env", () => {
 		assert.equal(readApiKey(), "abc123");
+	});
+
+	it("reads the Memanto Cloud key on the memanto-cloud backend", () => {
+		// A server on Memanto Cloud accepts the `mk_` key, not a Moorcheh key.
+		assert.equal(readApiKey("memanto-cloud"), "mk_cloud");
+	});
+
+	it("keeps the Moorcheh key on Memanto local", () => {
+		assert.equal(readApiKey("cloud"), "abc123");
+		assert.equal(readApiKey("on-prem"), "abc123");
 	});
 
 	it("joins a live session rather than starting one", () => {
