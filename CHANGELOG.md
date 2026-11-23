@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.0
+
+- Works on Memanto Cloud. After `memanto login`, the window's private server stores and
+  reads your memories on Memanto Cloud, shared with your other computers and tools. Needs
+  memanto 0.3.1 or later.
+- Uses the agent active on this computer, the same one the CLI, coding tools and the desktop
+  widget use, and follows it when you switch agents anywhere.
+- **Memanto: Select agent** now activates the agent on this computer, like
+  `memanto agent activate`.
+- Removed the `memanto.agentId` setting. Switch agents with **Memanto: Select agent** or
+  `memanto agent activate`.
+
 ## 0.1.1
 
 - Use the same mascot for the marketplace icon and the readme logo.
