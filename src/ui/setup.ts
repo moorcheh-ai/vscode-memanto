@@ -32,8 +32,8 @@ export async function showSetup(core: MemantoCore): Promise<void> {
 			alternatives: ["uv tool install memanto", "pipx install memanto"],
 		},
 		{
-			label: "Get a key, or choose on-prem",
-			detail: "Cloud: a free key, 100,000 operations, no card. On-prem: no key, runs on Docker.",
+			label: "Sign in, get a key, or choose on-prem",
+			detail: "Memanto Cloud: run memanto login. Moorcheh Cloud: a free key, 100,000 operations, no card. On-prem: no key, runs on Docker.",
 			done: keySettled,
 			link: KEY_CONSOLE_URL,
 		},
